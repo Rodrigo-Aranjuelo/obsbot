@@ -1,96 +1,119 @@
-# Investigación inicial: App iOS para controlar cámaras OBSBOT Tail Air 2 PTZ
+# App iOS para controlar cámaras OBSBOT Tail (Tail Air / Tail 2)
 
-Fecha de verificación: 2026-04-30.
+Fecha de actualización: 2026-04-30.
 
-## Protocolos confirmados (fuentes oficiales y semioficiales)
+## 1) Protocolos y decisión técnica para V1
 
-1. **VISCA over IP**
-   - OBSBOT publica una guía específica de VISCA over IP para la serie Tail y expone descargas de tablas de comandos (incluyendo Tail Air).
-   - Es el protocolo más estándar para PTZ remoto en LAN.
+### Control PTZ
+- **VISCA over IP** (recomendado para V1): estándar de facto en cámaras PTZ IP.
+- **Pelco-D/P** (relevante sobre todo para Tail 2): útil cuando tu flujo usa controladores legacy.
 
-2. **NDI (incl. control PTZ vía NDI Controller/Switcher en Tail Air)**
-   - En FAQ oficial indican que Tail Air puede controlarse por NDI si el entorno/controlador lo soporta.
-   - Relevante si quieres baja latencia en ecosistemas broadcast.
+### Video/preview
+- **RTSP** (recomendado para V1): suficiente para preview y validación de framing.
+- **NDI** (fase posterior): ideal para producción broadcast, pero añade complejidad/licenciamiento/SDK.
+- **SRT**: útil para transporte robusto, más orientado a contribución que a control.
 
-3. **RTSP (streaming de video)**
-   - Oficialmente documentado para Tail Air. Se usa para transporte/consumo de video, no como protocolo principal de control PTZ fino.
+## 2) Arquitectura objetivo de la app
 
-4. **SRT (streaming)**
-   - Oficial en Tail Air para streaming robusto por red inestable.
-   - Importante: al activar SRT, hay limitaciones con otros modos según la guía oficial.
+### Stack sugerido
+- **SwiftUI** para UI.
+- **MVVM** para separar lógica de red/control.
+- **Network module** para sockets de control.
+- **Video module** para preview RTSP.
 
-5. **Tail 2 (manual público de terceros que cita documentación oficial de OBSBOT)**
-   - Referencia a configuración de “Control Protocol” dentro de Obsbot Start App.
-   - Confirma VISCA over IP y también menciona Pelco-D/P para Tail 2.
+### Módulos mínimos
+1. **Camera Registry**
+   - Alta/edición/eliminación de cámaras.
+   - Persistencia local (nombre, IP, puerto, protocolo).
+2. **PTZ Control Engine**
+   - Pan/Tilt continuo + Stop.
+   - Zoom in/out + Stop.
+   - Velocidad configurable.
+3. **Preset Manager**
+   - Guardar/llamar presets.
+4. **RTSP Preview**
+   - Vista por cámara.
+5. **Connection Health**
+   - Ping lógico, reconexión y estados.
 
-## Qué significa esto para tu app iOS
+## 3) MVP cerrado (lo que sí haremos primero)
 
-- **Canal de control recomendado para empezar**: VISCA over IP.
-- **Canal de video recomendado para preview inicial**: RTSP (más simple que NDI en iOS).
-- **NDI**: considerar fase 2/3 por licencias, SDK y complejidad.
-- **Tail 2 vs Tail Air**: validar modelo exacto y firmware porque el set de comandos puede variar.
+- Conexión manual por IP:puerto.
+- Control PTZ básico (pan/tilt/zoom/focus básico si aplica).
+- Presets (save/recall).
+- Preview RTSP por cámara.
+- Manejo de desconexión y reconexión.
 
-## Lo que necesito de ti (paso a paso) para construirla contigo
+## 4) Lo que necesito de ti para construirla (checklist exacto)
 
-1. **Confirmar hardware exacto**
-   - ¿Es “Tail Air”, “Tail 2” o ambos?
-   - ¿Cuántas cámaras controlarás simultáneamente?
+Copia y rellena este bloque:
 
-2. **Confirmar versión de firmware por cámara**
-   - En Obsbot Start/Center, comparte versión exacta.
-   - Esto evita errores por comandos no soportados.
+```txt
+[CAMERAS]
+- Modelos exactos:
+- Cantidad de cámaras:
+- Firmware por cámara:
 
-3. **Elegir alcance de la V1 (MVP)**
-   - Recomendado: descubrimiento manual por IP + PTZ + zoom + presets + recall presets + preview RTSP.
-   - Decide si también quieres tracking on/off, exposición, balance de blancos, etc.
+[NETWORK]
+- iPhone y cámaras están en la misma LAN: (sí/no)
+- DHCP o IP fija:
+- Rango de red (ej. 192.168.1.x):
+- VLAN / redes separadas: (sí/no + detalle)
 
-4. **Conseguir documentación de comandos**
-   - Descarga y compárteme los Excel/tablas oficiales VISCA de tu modelo (Tail Air/Tail 2).
-   - Si usarás Pelco (Tail 2), comparte también esa tabla.
+[CONTROL]
+- Protocolo habilitado en cámara: (VISCA IP / Pelco / otro)
+- Puerto de control:
+- ¿Autenticación habilitada?:
 
-5. **Definir entorno de red real**
-   - Misma LAN para iPhone y cámaras.
-   - Rango IP típico, DHCP o estática, VLAN (si existe).
-   - Esto impacta descubrimiento y latencia.
+[VIDEO]
+- RTSP URL real por cámara (puedes ocultar password):
+- Codec esperado (H264/H265):
+- Resolución/FPS objetivo:
 
-6. **Decidir método de conexión inicial**
-   - V1 recomendada: ingreso manual de IP:puerto por cámara.
-   - Fase 2: autodescubrimiento (si protocolo/servicio lo permite de forma fiable).
+[MVP]
+- Funciones obligatorias V1 (ordenadas):
+- Funciones deseables V1.1:
+```
 
-7. **Definir UX de control PTZ**
-   - ¿Joystick virtual continuo o botones por pasos?
-   - Velocidades (lenta/media/rápida) y curva de aceleración.
-   - Límite de comandos por segundo (anti-saturación).
+## 5) Definiciones funcionales (para evitar ambigüedades)
 
-8. **Definir permisos y capacidades iOS**
-   - Solo red local inicialmente (sin BLE/USB).
-   - Confirmar versión mínima de iOS objetivo (recomiendo iOS 17+).
+- **Latencia objetivo PTZ**: <= 200 ms en LAN estable.
+- **Frecuencia de comandos**: 15–30 Hz con anti-flood.
+- **Timeout de comando**: 300–500 ms.
+- **Reconexión**: backoff exponencial (1s, 2s, 4s, 8s, máx 15s).
+- **Presets**: éxito >= 95% en pruebas repetidas.
 
-9. **Decidir stack técnico**
-   - SwiftUI + arquitectura MVVM.
-   - Control VISCA por sockets UDP/TCP (según tabla oficial de tu modelo).
-   - Preview por AVPlayer/FFmpeg wrapper para RTSP (según codec real).
+## 6) Riesgos técnicos y mitigación
 
-10. **Criterios de aceptación (QA)**
-   - PTZ responde <200 ms en LAN.
-   - Presets confiables en >95% de ejecuciones.
-   - Recuperación automática tras pérdida de red.
+1. **Diferencias Tail Air vs Tail 2 por firmware**
+   - Mitigación: matriz de compatibilidad por modelo/firmware y feature flags.
+2. **RTSP en iOS con variación de codecs**
+   - Mitigación: validar codec real antes de cerrar player.
+3. **Saturación por comandos continuos PTZ**
+   - Mitigación: throttling y coalescing de comandos.
 
-11. **Material de prueba que necesito de ti**
-   - 1 captura de pantalla por cámara de settings de protocolo.
-   - 1 ejemplo funcional de comando (si ya lo probaste desde vMix/teclado PTZ).
-   - 1 URL RTSP real por cámara (ocultando credenciales si aplica).
+## 7) Plan de ejecución (3 iteraciones)
 
-12. **Plan de ejecución conjunto**
-   - Semana 1: conexión + PTZ básico + presets.
-   - Semana 2: preview RTSP + reconexión + pulido UX.
-   - Semana 3: funciones avanzadas + pruebas de campo.
+### Iteración 1 (base funcional)
+- Modelo de cámaras + conexión manual + PTZ básico + stop confiable.
 
-## Siguiente acción recomendada para ti
+### Iteración 2 (operación real)
+- Presets + preview RTSP + reconexión automática + estados de salud.
 
-Envíame en un solo mensaje:
-- Modelo exacto de cámara(s).
-- Firmware de cada una.
-- Captura o texto de configuración de “Control Protocol”.
-- Tabla VISCA oficial descargada.
-- Qué funciones quieres en la V1 (lista priorizada).
+### Iteración 3 (pulido y campo)
+- Ajustes de UX PTZ, perfiles de velocidad, pruebas multi-cámara, hardening.
+
+## 8) Entregables que te daré después de que me compartas el checklist
+
+1. Diseño técnico (diagramas simples + contratos de módulos).
+2. Estructura de proyecto Xcode lista.
+3. Implementación inicial de motor PTZ.
+4. Pantallas SwiftUI MVP.
+5. Plan de pruebas funcionales en campo.
+
+## 9) Siguiente paso inmediato
+
+Respóndeme con el bloque del **checklist exacto** (sección 4). Con eso te entrego en el siguiente turno:
+- arquitectura concreta,
+- estructura de carpetas,
+- y primera tanda de código para iniciar la app iOS.
